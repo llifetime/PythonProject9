@@ -24,6 +24,10 @@ DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
+AUTH_USER_MODEL = 'users.User'
+
+DEFAULT_CHARSET = 'utf-8'
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -33,10 +37,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-    # Third party apps
+    # Сторонние приложения
     'rest_framework',
+    'django_filters',
 
-    # Local apps
+    # Ваши приложения
     'users',
     'materials',
 ]
@@ -142,6 +147,3 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,
 }
-
-# Custom user model
-AUTH_USER_MODEL = 'users.User'

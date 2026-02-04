@@ -1,14 +1,14 @@
+# config/urls.py
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
-app_name = 'api'
-
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/users/', include(('users.urls', 'users'), namespace='users')),
-    path('api/', include(('materials.urls', 'materials'), namespace='materials')),
+    path('api/users/', include('users.urls')),
+    path('api/materials/', include('materials.urls')),
+    path('api/', include('rest_framework.urls')),  # Для просмотра API в браузере
 ]
 
 if settings.DEBUG:
