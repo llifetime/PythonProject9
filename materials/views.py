@@ -1,27 +1,27 @@
-from rest_framework import viewsets, generics, permissions
-from .models import Course, Lesson
-from .serializers import CourseSerializer, LessonSerializer
+# materials/views.py
+from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from .models import Course, Lesson  # Импортируем только модели из materials
+from .serializers import CourseSerializer, CourseDetailSerializer, LessonSerializer
 
 
 class CourseViewSet(viewsets.ModelViewSet):
-    """ViewSet для управления курсами"""
-
     queryset = Course.objects.all()
-    serializer_class = CourseSerializer
-    permission_classes = [permissions.AllowAny]  # Временно открыт доступ для всех
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return CourseDetailSerializer
+        return CourseSerializer
+
+    @action(detail=True, methods=['get'])
+    def lessons(self, request, pk=None):
+        course = self.get_object()
+        lessons = course.lessons.all()
+        serializer = LessonSerializer(lessons, many=True)
+        return Response(serializer.data)
 
 
-class LessonListCreateView(generics.ListCreateAPIView):
-    """Представление для получения списка уроков и создания нового урока"""
-
+class LessonViewSet(viewsets.ModelViewSet):
     queryset = Lesson.objects.all()
     serializer_class = LessonSerializer
-    permission_classes = [permissions.AllowAny]  # Временно открыт доступ для всех
-
-
-class LessonRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    """Представление для получения, обновления и удаления урока"""
-
-    queryset = Lesson.objects.all()
-    serializer_class = LessonSerializer
-    permission_classes = [permissions.AllowAny]  # Временно открыт доступ для всех
