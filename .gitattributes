@@ -1,0 +1,33 @@
+# Установите поведение по умолчанию
+* text=auto
+
+# Укажите файлы, которые должны быть с CRLF (Windows)
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Укажите файлы, которые должны быть с LF (Unix)
+*.py text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+
+# Бинарные файлы
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.exe binary
+
+# Исключите файлы IDE из контроля версий
+.idea/* -text
+.vscode/* -text
+*.iml -text
