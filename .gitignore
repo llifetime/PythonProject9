@@ -63,8 +63,3 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-
-# IDE workspace files (добавьте эту строку)
-.idea/workspace.xml
-.idea/modules.xml
-.idea/.name

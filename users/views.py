@@ -1,135 +1,96 @@
-# users/views.py
-from rest_framework import viewsets, generics, permissions, status, filters, serializers
+﻿from rest_framework import viewsets, filters, permissions, generics
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from django.contrib.auth import get_user_model
-from rest_framework_simplejwt.views import TokenObtainPairView
-from rest_framework_simplejwt.tokens import RefreshToken
 from django_filters.rest_framework import DjangoFilterBackend
-
-from .models import Payment
-from .serializers import (
-    UserRegisterSerializer,
-    UserSerializer,
-    UserProfileSerializer,
-    PaymentSerializer,
-    PaymentHistorySerializer
-)
-from .filters import PaymentFilter
+from .models import Payment, User
 from .permissions import IsOwnerOrReadOnly
 
-User = get_user_model()
+# Временный простой сериализатор для избежания циклических зависимостей
+from rest_framework import serializers
 
-
-# Сериализатор для публичного профиля (определяем здесь, а не в serializers.py)
-class PublicUserSerializer(serializers.ModelSerializer):
-    """Сериализатор для публичного профиля (без приватных данных)"""
-
+class SimpleUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'first_name', 'city', 'avatar']
-        read_only_fields = fields
+        fields = ['id', 'email', 'first_name', 'last_name', 'username']
+
+
+class SimplePaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Payment
+        fields = ['id', 'user', 'payment_date', 'course', 'lesson', 'amount', 'payment_method']
+        read_only_fields = ['user', 'payment_date']
+
+
+class RegisterView(generics.CreateAPIView):
+    """Отдельный эндпоинт для регистрации"""
+    queryset = User.objects.all()
+    permission_classes = [permissions.AllowAny]
+    
+    def get_serializer_class(self):
+        # Простой сериализатор для регистрации
+        class RegisterSerializer(serializers.ModelSerializer):
+            password = serializers.CharField(write_only=True)
+            
+            class Meta:
+                model = User
+                fields = ['email', 'password', 'first_name', 'last_name', 'username']
+            
+            def create(self, validated_data):
+                user = User.objects.create_user(
+                    email=validated_data['email'],
+                    password=validated_data['password'],
+                    first_name=validated_data.get('first_name', ''),
+                    last_name=validated_data.get('last_name', ''),
+                    username=validated_data.get('username', '')
+                )
+                return user
+        
+        return RegisterSerializer
 
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
-    serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
+    
+    def get_serializer_class(self):
+        return SimpleUserSerializer
+    
     def get_permissions(self):
-        # Разрешаем регистрацию без авторизации
-        if self.action == 'create':
-            return [permissions.AllowAny()]
-        elif self.action in ['retrieve', 'list']:
-            # Чтение профилей доступно всем авторизованным
+        # Убрать возможность создания через ViewSet
+        if self.action in ['retrieve', 'list']:
             return [permissions.IsAuthenticated()]
         elif self.action in ['update', 'partial_update', 'destroy']:
-            # Изменять и удалять можно только свой профиль
             return [permissions.IsAuthenticated(), IsOwnerOrReadOnly()]
-        elif self.action == 'public_profile':
-            # Публичный профиль доступен всем
-            return [permissions.AllowAny()]
         return [permissions.IsAuthenticated()]
-
-    def get_serializer_class(self):
-        if self.action == 'create':
-            return UserRegisterSerializer
-        elif self.action == 'public_profile':
-            return PublicUserSerializer
-        return UserSerializer
-
-    @action(detail=False, methods=['get', 'put', 'patch'])
-    def profile(self, request):
-        """Получение и обновление профиля текущего пользователя"""
-        user = request.user
-        if request.method == 'GET':
-            serializer = UserProfileSerializer(user, context={'request': request})
-            return Response(serializer.data)
-        elif request.method in ['PUT', 'PATCH']:
-            serializer = UserProfileSerializer(
-                user, data=request.data,
-                partial=request.method == 'PATCH',
-                context={'request': request}
-            )
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    @action(detail=True, methods=['get'])
-    def public_profile(self, request, pk=None):
-        """Публичный профиль пользователя (для всех)"""
-        user = self.get_object()
-        serializer = PublicUserSerializer(user)
-        return Response(serializer.data)
-
-
-class CustomTokenObtainPairView(TokenObtainPairView):
-    """Кастомный вью для получения JWT токена"""
-
-    def post(self, request, *args, **kwargs):
-        response = super().post(request, *args, **kwargs)
-        if response.status_code == 200:
-            user = User.objects.get(username=request.data.get('username'))
-            response.data['user'] = UserSerializer(user).data
-        return response
-
-
-class RegisterView(generics.CreateAPIView):
-    """Регистрация пользователя"""
-    queryset = User.objects.all()
-    serializer_class = UserRegisterSerializer
-    permission_classes = [permissions.AllowAny]
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-
-        # Создаем JWT токены
-        refresh = RefreshToken.for_user(user)
-
-        return Response({
-            'user': UserSerializer(user).data,
-            'refresh': str(refresh),
-            'access': str(refresh.access_token),
-        }, status=status.HTTP_201_CREATED)
+    
+    @action(detail=False, methods=['get'])
+    def public_profile(self, request):
+        """Публичный профиль (если нужен)"""
+        return Response({"message": "Public profile endpoint"})
 
 
 class PaymentViewSet(viewsets.ModelViewSet):
     queryset = Payment.objects.all()
-    serializer_class = PaymentSerializer
+    serializer_class = SimplePaymentSerializer
+    
+    # Задание 4: Настройка фильтрации
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_class = PaymentFilter
-    ordering_fields = ['payment_date', 'amount']
-    permission_classes = [permissions.IsAuthenticated]
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
+    filterset_fields = ['course', 'lesson', 'payment_method']
+    ordering_fields = ['payment_date']
+    ordering = ['-payment_date']
+    
     def get_queryset(self):
         # Пользователи видят только свои платежи
-        # Модераторы видят все (проверка будет в задании 3)
-        if self.request.user.groups.filter(name='Модераторы').exists():
-            return Payment.objects.all()
-        return Payment.objects.filter(user=self.request.user)
+        if self.request.user.is_authenticated:
+            if self.request.user.is_staff or self.request.user.groups.filter(name='Модераторы').exists():
+                return Payment.objects.all()
+            return Payment.objects.filter(user=self.request.user)
+        return Payment.objects.none()
+
+
+class UserProfileViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = SimpleUserSerializer
+    
+    def get_queryset(self):
+        # Пользователь видит только свой профиль
+        return User.objects.filter(id=self.request.user.id)

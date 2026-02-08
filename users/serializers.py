@@ -1,107 +1,94 @@
-# users/serializers.py
-from rest_framework import serializers
+﻿from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from django.contrib.auth.password_validation import validate_password
-from rest_framework.validators import UniqueValidator
 from .models import Payment
 
 User = get_user_model()
 
 
-# Сериализатор для регистрации
-class UserRegisterSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField(
-        required=True,
-        validators=[UniqueValidator(queryset=User.objects.all())]
-    )
-    password = serializers.CharField(
-        write_only=True,
-        required=True,
-        validators=[validate_password]
-    )
-    password2 = serializers.CharField(write_only=True, required=True)
-
+class RegisterSerializer(serializers.ModelSerializer):
+    """Сериализатор для регистрации"""
+    password = serializers.CharField(write_only=True)
+    
     class Meta:
         model = User
-        fields = ('email', 'username', 'password', 'password2',
-                  'first_name', 'last_name', 'phone', 'city')
-        extra_kwargs = {
-            'first_name': {'required': True},
-            'last_name': {'required': True},
-        }
-
-    def validate(self, attrs):
-        if attrs['password'] != attrs['password2']:
-            raise serializers.ValidationError(
-                {"password": "Пароли не совпадают"}
-            )
-        return attrs
-
+        fields = ['email', 'password', 'first_name', 'last_name']
+    
     def create(self, validated_data):
-        validated_data.pop('password2')
-        user = User.objects.create_user(**validated_data)
+        user = User.objects.create_user(
+            email=validated_data['email'],
+            password=validated_data['password'],
+            first_name=validated_data.get('first_name', ''),
+            last_name=validated_data.get('last_name', '')
+        )
         return user
 
 
-# Сериализатор для пользователя
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('id', 'email', 'username', 'first_name',
-                  'last_name', 'phone', 'city', 'avatar',
-                  'is_staff', 'is_active', 'date_joined')
-        read_only_fields = ('is_staff', 'is_active', 'date_joined')
+        fields = ['id', 'email', 'first_name', 'last_name']
 
 
-# Сериализатор для публичного профиля
-class PublicUserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ['id', 'username', 'first_name', 'city', 'avatar']
-        read_only_fields = fields
-
-
-# Сериализатор для истории платежей
-class PaymentHistorySerializer(serializers.ModelSerializer):
-    course_title = serializers.CharField(source='paid_course.title', read_only=True)
-    lesson_title = serializers.CharField(source='paid_lesson.title', read_only=True)
-
-    class Meta:
-        model = Payment
-        fields = ['id', 'payment_date', 'amount', 'payment_method',
-                  'course_title', 'lesson_title']
-
-
-# Сериализатор для профиля с историей платежей
-class UserProfileSerializer(serializers.ModelSerializer):
-    payment_history = serializers.SerializerMethodField()
-
-    class Meta:
-        model = User
-        fields = ('id', 'email', 'username', 'first_name',
-                  'last_name', 'phone', 'city', 'avatar', 'payment_history')
-        read_only_fields = ('id', 'email', 'payment_history')
-
-    def get_payment_history(self, obj):
-        # История платежей видна только для своего профиля
-        request = self.context.get('request')
-        if request and request.user == obj:
-            payments = obj.payments.all()
-            return PaymentHistorySerializer(payments, many=True).data
-        return []
-
-
-# Сериализатор для платежей
 class PaymentSerializer(serializers.ModelSerializer):
-    user_info = UserSerializer(source='user', read_only=True)
-    course_title = serializers.CharField(source='paid_course.title', read_only=True)
-    lesson_title = serializers.CharField(source='paid_lesson.title', read_only=True)
-
+    # Для чтения используем SerializerMethodField
+    course = serializers.SerializerMethodField(read_only=True)
+    lesson = serializers.SerializerMethodField(read_only=True)
+    
+    # Для записи используем PrimaryKeyRelatedField
+    course_id = serializers.PrimaryKeyRelatedField(
+        queryset=None,  # Установим в __init__
+        source='course',
+        write_only=True,
+        required=False,
+        allow_null=True
+    )
+    lesson_id = serializers.PrimaryKeyRelatedField(
+        queryset=None,  # Установим в __init__
+        source='lesson',
+        write_only=True,
+        required=False,
+        allow_null=True
+    )
+    
     class Meta:
         model = Payment
         fields = [
-            'id', 'user', 'user_info', 'payment_date',
-            'paid_course', 'paid_lesson', 'course_title', 'lesson_title',
-            'amount', 'payment_method'
+            'id', 'user', 'payment_date', 'course', 'lesson',
+            'course_id', 'lesson_id', 'amount', 'payment_method'
         ]
-        read_only_fields = ['user', 'user_info', 'payment_date']
+        read_only_fields = ['user', 'payment_date']
+    
+    def get_course(self, obj):
+        if obj.course:
+            # Ленивый импорт
+            from materials.serializers import CourseSerializer
+            return CourseSerializer(obj.course).data
+        return None
+    
+    def get_lesson(self, obj):
+        if obj.lesson:
+            # Ленивый импорт
+            from materials.serializers import LessonSerializer
+            return LessonSerializer(obj.lesson).data
+        return None
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Устанавливаем queryset после импорта моделей
+        try:
+            from materials.models import Course, Lesson
+            self.fields['course_id'].queryset = Course.objects.all()
+            self.fields['lesson_id'].queryset = Lesson.objects.all()
+        except ImportError:
+            # Если модели еще не существуют (при миграциях)
+            self.fields['course_id'].queryset = None
+            self.fields['lesson_id'].queryset = None
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    # Дополнительное задание: История платежей пользователя
+    payment_history = PaymentSerializer(many=True, read_only=True, source='payments')
+    
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'first_name', 'last_name', 'payment_history']
