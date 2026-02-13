@@ -1,6 +1,6 @@
 ﻿from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Payment
+from .models import Payment, Subscription
 
 User = get_user_model()
 
@@ -92,3 +92,14 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'email', 'first_name', 'last_name', 'payment_history']
+
+
+# Добавляем в users/serializers.py
+class SubscriptionSerializer(serializers.ModelSerializer):
+    course_title = serializers.CharField(source='course.title', read_only=True)
+    user_email = serializers.CharField(source='user.email', read_only=True)
+
+    class Meta:
+        model = Subscription
+        fields = ['id', 'user', 'user_email', 'course', 'course_title', 'created_at']
+        read_only_fields = ['user', 'created_at']
