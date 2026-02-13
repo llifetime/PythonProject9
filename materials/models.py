@@ -25,6 +25,7 @@ class Course(models.Model):
     class Meta:
         verbose_name = 'Курс'
         verbose_name_plural = 'Курсы'
+        ordering = ['-created_at']
     
     def __str__(self):
         return self.title
@@ -39,12 +40,6 @@ class Lesson(models.Model):
         related_name='lessons',
         verbose_name='Курс'
     )
-    video_url = models.URLField(
-        max_length=500,
-        blank=True,
-        null=True,
-        verbose_name='Ссылка на видео'
-    )
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -54,6 +49,12 @@ class Lesson(models.Model):
         related_name='lessons'
     )
     content = models.TextField(verbose_name='Содержание урока', blank=True)
+    video_url = models.URLField(
+        max_length=500, 
+        blank=True, 
+        null=True,
+        verbose_name='Ссылка на видео'
+    )
     order = models.PositiveIntegerField(default=0, verbose_name='Порядок')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
@@ -61,7 +62,7 @@ class Lesson(models.Model):
     class Meta:
         verbose_name = 'Урок'
         verbose_name_plural = 'Уроки'
-        ordering = ['order']
+        ordering = ['course', 'order']
     
     def __str__(self):
         if self.course:

@@ -9,9 +9,7 @@ class User(AbstractUser):
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True, verbose_name='Аватар')
     city = models.CharField(max_length=100, blank=True, verbose_name='Город')
     
-    # Используем email как поле для аутентификации
     USERNAME_FIELD = 'email'
-    # Поле username обязательно для AbstractUser, но мы его не используем для входа
     REQUIRED_FIELDS = ['username']
     
     class Meta:
@@ -44,7 +42,6 @@ class Payment(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='payments',
         verbose_name='Оплаченный курс'
     )
     lesson = models.ForeignKey(
@@ -52,7 +49,6 @@ class Payment(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='payments',
         verbose_name='Оплаченный урок'
     )
     amount = models.DecimalField(
@@ -73,3 +69,34 @@ class Payment(models.Model):
     
     def __str__(self):
         return f"Платеж {self.user.email} - {self.amount}"
+
+
+class Subscription(models.Model):
+    """
+    Модель подписки пользователя на обновления курса
+    """
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='subscriptions',
+        verbose_name='Пользователь'
+    )
+    course = models.ForeignKey(
+        'materials.Course',
+        on_delete=models.CASCADE,
+        related_name='subscriptions',
+        verbose_name='Курс'
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Дата подписки'
+    )
+    
+    class Meta:
+        verbose_name = 'Подписка'
+        verbose_name_plural = 'Подписки'
+        unique_together = ('user', 'course')
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.user.email} подписан на {self.course.title}"

@@ -1,6 +1,7 @@
 ﻿from rest_framework import viewsets, permissions
 from .models import Course, Lesson
 from django.contrib.auth import get_user_model
+from .paginators import CoursePaginator, LessonPaginator
 
 User = get_user_model()
 
@@ -66,6 +67,7 @@ class IsOwnerOnly(permissions.BasePermission):
 class CourseViewSet(viewsets.ModelViewSet):
     queryset = Course.objects.all()
     serializer_class = SimpleCourseSerializer
+    pagination_class = CoursePaginator
     
     def get_permissions(self):
         if self.action == 'create':
@@ -94,6 +96,7 @@ class CourseViewSet(viewsets.ModelViewSet):
 class LessonViewSet(viewsets.ModelViewSet):
     queryset = Lesson.objects.all()
     serializer_class = SimpleLessonSerializer
+    pagination_class = LessonPaginator
     
     def get_permissions(self):
         if self.action == 'create':
