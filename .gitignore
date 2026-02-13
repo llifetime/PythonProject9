@@ -16,10 +16,11 @@ env/
 ENV/
 
 # IDE
-.vscode/
 .idea/
+.vscode/
 *.swp
 *.swo
+*.iml
 
 # OS
 .DS_Store
@@ -45,3 +46,20 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# pyenv
+.python-version
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
