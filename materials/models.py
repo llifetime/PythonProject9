@@ -39,6 +39,12 @@ class Lesson(models.Model):
         related_name='lessons',
         verbose_name='Курс'
     )
+    video_url = models.URLField(
+        max_length=500,
+        blank=True,
+        null=True,
+        verbose_name='Ссылка на видео'
+    )
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
