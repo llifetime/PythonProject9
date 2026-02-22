@@ -1,76 +1,74 @@
-from rest_framework import serializers
-from django.contrib.auth.password_validation import validate_password
-from .models import User
+﻿from rest_framework import serializers
+from django.contrib.auth import get_user_model
+from .models import Payment, Subscription
+from materials.models import Course, Lesson
+
+User = get_user_model()
 
 
-class UserSerializer(serializers.ModelSerializer):
-    """Сериализатор для чтения данных пользователя"""
-
+class RegisterSerializer(serializers.ModelSerializer):
+    """Сериализатор для регистрации"""
+    password = serializers.CharField(write_only=True)
+    
     class Meta:
         model = User
-        fields = [
-            'id', 'email', 'first_name', 'last_name',
-            'phone', 'city', 'avatar', 'is_staff',
-            'is_active', 'date_joined', 'last_login'
-        ]
-        read_only_fields = [
-            'id', 'is_staff', 'is_active',
-            'date_joined', 'last_login'
-        ]
-
-
-class UserCreateSerializer(serializers.ModelSerializer):
-    """Сериализатор для создания пользователя"""
-    password = serializers.CharField(
-        write_only=True,
-        required=True,
-        validators=[validate_password]
-    )
-    password2 = serializers.CharField(write_only=True, required=True)
-
-    class Meta:
-        model = User
-        fields = [
-            'email', 'password', 'password2',
-            'first_name', 'last_name', 'phone', 'city', 'avatar'
-        ]
-
-    def validate(self, attrs):
-        """Проверка совпадения паролей"""
-        if attrs['password'] != attrs['password2']:
-            raise serializers.ValidationError({"password": "Password fields didn't match."})
-        return attrs
-
+        fields = ['email', 'password', 'first_name', 'last_name', 'username']
+    
     def create(self, validated_data):
-        """Создание пользователя"""
-        validated_data.pop('password2')
-        user = User.objects.create_user(**validated_data)
+        user = User.objects.create_user(
+            email=validated_data['email'],
+            password=validated_data['password'],
+            first_name=validated_data.get('first_name', ''),
+            last_name=validated_data.get('last_name', ''),
+            username=validated_data.get('username', validated_data['email'])
+        )
         return user
 
 
-class UserUpdateSerializer(serializers.ModelSerializer):
-    """Сериализатор для обновления пользователя"""
-
+class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
+        fields = ['id', 'email', 'first_name', 'last_name', 'username', 'city']
+
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    course_title = serializers.CharField(source='course.title', read_only=True)
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    
+    class Meta:
+        model = Subscription
+        fields = ['id', 'user', 'user_email', 'course', 'course_title', 'created_at']
+        read_only_fields = ['user', 'created_at']
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    """Сериализатор для платежей"""
+    course_title = serializers.CharField(source='course.title', read_only=True)
+    lesson_title = serializers.CharField(source='lesson.title', read_only=True)
+    
+    class Meta:
+        model = Payment
         fields = [
-            'id', 'email', 'first_name', 'last_name',
-            'phone', 'city', 'avatar'
+            'id', 'user', 'payment_date', 'course', 'course_title',
+            'lesson', 'lesson_title', 'amount', 'payment_method'
         ]
-        read_only_fields = ['id', 'email']  # email нельзя менять
+        read_only_fields = ['user', 'payment_date']
 
 
-class PasswordChangeSerializer(serializers.Serializer):
-    """Сериализатор для изменения пароля"""
-    old_password = serializers.CharField(required=True)
-    new_password = serializers.CharField(
-        required=True,
-        validators=[validate_password]
-    )
-    new_password2 = serializers.CharField(required=True)
-
-    def validate(self, attrs):
-        """Проверка совпадения новых паролей"""
-        if attrs['new_password'] != attrs['new_password2']:
-            raise serializers.ValidationError({"new_password": "New password fields didn't match."})
-        return attrs
+class UserProfileSerializer(serializers.ModelSerializer):
+    """Сериализатор профиля пользователя с историей платежей"""
+    payment_history = serializers.SerializerMethodField()
+    subscriptions = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'first_name', 'last_name', 'city', 
+                  'payment_history', 'subscriptions']
+    
+    def get_payment_history(self, obj):
+        payments = obj.payments.all()[:10]
+        return PaymentSerializer(payments, many=True).data
+    
+    def get_subscriptions(self, obj):
+        subs = obj.subscriptions.all()
+        return SubscriptionSerializer(subs, many=True).data
