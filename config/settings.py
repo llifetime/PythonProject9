@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'drf_spectacular',
 
     # Сторонние приложения
     'rest_framework',
@@ -57,7 +58,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'config.urls'
+ROOT_URLCONF = 'config.urls_simple'
 
 # Исправленная секция TEMPLATES
 TEMPLATES = [
@@ -146,6 +147,9 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.BasicAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
+    'DEFAULT_SCHEMA_CLASS': [
+        'drf_spectacular.openapi.AutoSchema',
+    ],
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',
     ],
@@ -160,3 +164,36 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Courses Platform API',
+    'DESCRIPTION': 'API для платформы онлайн-курсов с интеграцией Stripe',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SCHEMA_PATH_PREFIX': r'/api/',
+
+    # Настройки для удобной документации
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'displayOperationId': True,
+    },
+
+    # Компоненты
+    'COMPONENT_SPLIT_REQUEST': True,
+    'COMPONENT_NO_READ_ONLY_REQUIRED': True,
+
+    # Безопасность
+    'SECURITY': [{'Bearer': []}],
+}
+
+STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY')
+STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
+STRIPE_API_VERSION = '2024-11-20.acacia'  # актуальная версия API
+
+if DEBUG:
+    CSRF_TRUSTED_ORIGINS = ['http://localhost:8000', 'http://127.0.0.1:8000']
+
+    # Для тестирования вебхуков с ngrok или аналогичными сервисами
+    import warnings
+
+    warnings.filterwarnings('ignore', message='.*CSRF.*', module='django.security.csrf')

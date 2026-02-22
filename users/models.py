@@ -30,7 +30,7 @@ class Payment(models.Model):
     user = models.ForeignKey(
         User, 
         on_delete=models.CASCADE, 
-        related_name='payments',
+        related_name='users_payments',
         verbose_name='Пользователь'
     )
     payment_date = models.DateTimeField(
