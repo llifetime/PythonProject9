@@ -1,12 +1,40 @@
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.core.exceptions import ValidationError
+from django.utils import timezone
+from datetime import timedelta
+from .tasks import send_course_update_notification
 import logging
-from .models import Course, Payment, UserCourseAccess
+from .models import Course, Lesson, Payment, UserCourseAccess
 from .services.stripe_service import StripeService
 
 logger = logging.getLogger(__name__)
 
+@receiver(post_save, sender=Lesson)
+def notify_lesson_update(sender, instance, created, **kwargs):
+    """
+    Отправка уведомлений при обновлении урока
+    """
+    if not created and instance.course:  # Только при обновлении
+        course = instance.course
+        time_since_update = timezone.now() - course.updated_at
+        if time_since_update >= timedelta(hours=4):
+            # Запускаем задачу с указанием обновленного урока
+            send_course_update_notification.delay(course.id, instance.id)
+            logger.info(f"Задача на отправку уведомлений для урока {instance.id} курса {course.id} поставлена в очередь")
+
+@receiver(post_save, sender=Course)
+def notify_course_update(sender, instance, created, **kwargs):
+    """
+    Отправка уведомлений при обновлении курса
+    """
+    if not created:  # Только при обновлении, не при создании
+        # Проверяем, прошло ли 4 часа с последнего обновления
+        time_since_update = timezone.now() - instance.updated_at
+        if time_since_update >= timedelta(hours=4):
+            # Запускаем задачу асинхронно
+            send_course_update_notification.delay(instance.id)
+            logger.info(f"Задача на отправку уведомлений для курса {instance.id} поставлена в очередь")
 
 @receiver(post_save, sender=Course)
 def create_stripe_product(sender, instance, created, **kwargs):

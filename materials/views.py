@@ -1,6 +1,7 @@
 ﻿from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from django.conf import settings
+from django.utils import timezone
 import logging
 from .models import Course, Lesson
 from django.contrib.auth import get_user_model
@@ -87,6 +88,10 @@ class CourseViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
+    def perform_update(self, serializer):
+        # Автоматически обновляем поле updated_at
+        serializer.save(updated_at=timezone.now())
+
 
 class LessonViewSet(viewsets.ModelViewSet):
     """
@@ -118,3 +123,10 @@ class LessonViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
+
+    def perform_update(self, serializer):
+        # Обновляем урок и его курс
+        lesson = serializer.save(updated_at=timezone.now())
+        # Обновляем время курса
+        if lesson.course:
+            lesson.course.save()  # автоматически обновит updated_at
