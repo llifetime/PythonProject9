@@ -1,78 +1,132 @@
-# materials/views.py должно содержать:
-from rest_framework import viewsets, permissions
-from rest_framework.decorators import action
+﻿from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
-from django.db import models  # Добавьте этот импорт
-from .models import Course, Lesson  # Импортируем только модели из materials
-from .serializers import CourseSerializer, CourseDetailSerializer, LessonSerializer
-from .permissions import IsOwnerOrModerator, IsModerator
+from django.conf import settings
+from django.utils import timezone
+import logging
+from .models import Course, Lesson
+from django.contrib.auth import get_user_model
+from .paginators import CoursePaginator, LessonPaginator
+from .serializers import (
+    SimpleLessonSerializer,
+    SimpleCourseSerializer,
+    CourseCreateSerializer
+)
+
+logger = logging.getLogger(__name__)
+User = get_user_model()
+
+
+# Простые permissions (оставляем как есть)
+class IsOwnerOrModerator(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        if not request.user.is_authenticated:
+            return False
+
+        if request.user.groups.filter(name='Модераторы').exists():
+            return request.method in permissions.SAFE_METHODS or request.method in ['PUT', 'PATCH']
+
+        if hasattr(obj, 'owner'):
+            return obj.owner == request.user
+
+        return False
+
+
+class IsNotModerator(permissions.BasePermission):
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        return not request.user.groups.filter(name='Модераторы').exists()
+
+
+class IsOwnerOnly(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        if not request.user.is_authenticated:
+            return False
+
+        if request.user.groups.filter(name='Модераторы').exists():
+            return False
+
+        if hasattr(obj, 'owner'):
+            return obj.owner == request.user
+
+        return False
 
 
 class CourseViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint для работы с курсами.
+    """
     queryset = Course.objects.all()
+    serializer_class = SimpleCourseSerializer
+    pagination_class = CoursePaginator
 
     def get_serializer_class(self):
-        if self.action == 'retrieve':
-            return CourseDetailSerializer
-        return CourseSerializer
+        if self.action == 'create':
+            return CourseCreateSerializer
+        return SimpleCourseSerializer
 
     def get_permissions(self):
-        """Настраиваем права доступа"""
         if self.action == 'create':
-            return [permissions.IsAuthenticated()]
-        elif self.action in ['update', 'partial_update', 'destroy']:
+            return [permissions.IsAuthenticated(), IsNotModerator()]
+        elif self.action in ['update', 'partial_update']:
             return [permissions.IsAuthenticated(), IsOwnerOrModerator()]
+        elif self.action == 'destroy':
+            return [permissions.IsAuthenticated(), IsOwnerOnly()]
         elif self.action in ['retrieve', 'list']:
-            return [permissions.AllowAny()]
+            return [permissions.IsAuthenticated()]
         return [permissions.IsAuthenticated()]
-
-    def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
 
     def get_queryset(self):
         if not self.request.user.is_authenticated:
-            return Course.objects.all()
+            return Course.objects.none()
 
         if self.request.user.groups.filter(name='Модераторы').exists():
             return Course.objects.all()
 
-        return Course.objects.filter(
-            models.Q(owner=self.request.user) |
-            models.Q(owner__isnull=False)
-        ).distinct()
-
-    @action(detail=True, methods=['get'])
-    def lessons(self, request, pk=None):
-        course = self.get_object()
-        lessons = course.lessons.all()
-        serializer = LessonSerializer(lessons, many=True)
-        return Response(serializer.data)
-
-
-class LessonViewSet(viewsets.ModelViewSet):
-    queryset = Lesson.objects.all()
-    serializer_class = LessonSerializer
-
-    def get_permissions(self):
-        if self.action == 'create':
-            return [permissions.IsAuthenticated()]
-        elif self.action in ['update', 'partial_update', 'destroy']:
-            return [permissions.IsAuthenticated(), IsOwnerOrModerator()]
-        elif self.action in ['retrieve', 'list']:
-            return [permissions.AllowAny()]
-        return [permissions.IsAuthenticated()]
+        return Course.objects.filter(owner=self.request.user)
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
+    def perform_update(self, serializer):
+        # Автоматически обновляем поле updated_at
+        serializer.save(updated_at=timezone.now())
+
+
+class LessonViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint для работы с уроками.
+    """
+    queryset = Lesson.objects.all()
+    serializer_class = SimpleLessonSerializer
+    pagination_class = LessonPaginator
+
+    def get_permissions(self):
+        if self.action == 'create':
+            return [permissions.IsAuthenticated(), IsNotModerator()]
+        elif self.action in ['update', 'partial_update']:
+            return [permissions.IsAuthenticated(), IsOwnerOrModerator()]
+        elif self.action == 'destroy':
+            return [permissions.IsAuthenticated(), IsOwnerOnly()]
+        elif self.action in ['retrieve', 'list']:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated()]
+
     def get_queryset(self):
         if not self.request.user.is_authenticated:
-            return Lesson.objects.filter(course__owner__isnull=False)
+            return Lesson.objects.none()
 
         if self.request.user.groups.filter(name='Модераторы').exists():
             return Lesson.objects.all()
 
-        return Lesson.objects.filter(
-            models.Q(owner=self.request.user) |
-            models.Q(course__owner__isnull=False)
-        ).distinct()
+        return Lesson.objects.filter(owner=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
+    def perform_update(self, serializer):
+        # Обновляем урок и его курс
+        lesson = serializer.save(updated_at=timezone.now())
+        # Обновляем время курса
+        if lesson.course:
+            lesson.course.save()  # автоматически обновит updated_at

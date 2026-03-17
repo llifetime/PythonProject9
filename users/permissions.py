@@ -1,14 +1,10 @@
-# users/permissions.py
-from rest_framework import permissions
+﻿from rest_framework import permissions
 
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
-    """Разрешает полный доступ владельцу, остальным только чтение"""
-
+    """Разрешает редактирование только владельцу, чтение - всем авторизованным"""
+    
     def has_object_permission(self, request, view, obj):
-        # Разрешаем безопасные методы всем
         if request.method in permissions.SAFE_METHODS:
-            return True
-
-        # Запись только владельцу
+            return request.user.is_authenticated
         return obj == request.user
