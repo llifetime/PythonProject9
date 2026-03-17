@@ -1,5 +1,16 @@
-Django==6.0.1
-djangorestframework==3.16.1
-psycopg2-binary==2.9.11
-Pillow==12.1.0
-python-dotenv==1.2.1
+﻿Django>=6.0.3
+djangorestframework>=3.16.1
+djangorestframework-simplejwt>=5.5.1
+django-filter>=25.2
+psycopg2-binary>=2.9.11
+gunicorn>=25.1.0
+python-dotenv>=1.2.2
+celery>=5.6.2
+redis>=7.3.0
+django-celery-beat>=2.9.0  # Добавляем
+django-celery-results>=2.6.0
+eventlet>=0.40.4
+flower>=2.0.1              # Добавляем
+stripe>=14.4.1
+pillow>=12.1.1
+drf-spectacular
