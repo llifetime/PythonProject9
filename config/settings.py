@@ -191,7 +191,12 @@ STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
 STRIPE_API_VERSION = '2024-11-20.acacia'  # актуальная версия API
 
 # Security settings for production
-if not DEBUG:
+import sys
+
+IS_CI = os.environ.get('CI') == 'true'
+IS_TESTING = 'test' in sys.argv
+
+if not DEBUG and not IS_CI and not IS_TESTING:
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
