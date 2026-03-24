@@ -246,3 +246,5 @@ if 'test' in sys.argv:
             'level': 'DEBUG',
         },
     }
+
+APPEND_SLASH = False
