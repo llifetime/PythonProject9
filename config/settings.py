@@ -248,3 +248,10 @@ if 'test' in sys.argv:
     }
 
 APPEND_SLASH = False
+
+import sys
+if 'test' in sys.argv:
+    MIDDLEWARE.insert(0, 'django.middleware.common.CommonMiddleware')
+    print("=== DEBUG: Running tests ===")
+    print(f"ROOT_URLCONF: {ROOT_URLCONF}")
+    print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}")
