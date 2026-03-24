@@ -1,5 +1,5 @@
 # materials/tests_all_endpoints.py
-from rest_framework.test import APITestCase
+from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group

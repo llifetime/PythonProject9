@@ -14,3 +14,5 @@ flower>=2.0.1              # Добавляем
 stripe>=14.4.1
 pillow>=12.1.1
 drf-spectacular
+dj-config-url
+dj-database-url
