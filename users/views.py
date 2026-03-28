@@ -1,10 +1,48 @@
-﻿from rest_framework import generics, permissions, status
+﻿from rest_framework import viewsets, generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.viewsets import GenericViewSet
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import OrderingFilter
 
-from .models import Subscription, User
-from .serializers import RegisterSerializer, SubscriptionSerializer
+from .models import Payment, Subscription, User
+from .serializers import (
+    PaymentSerializer, UserProfileSerializer,
+    UserSerializer, RegisterSerializer, SubscriptionSerializer
+)
+from .permissions import IsOwnerOrReadOnly
+
+
+class PaymentViewSet(viewsets.ModelViewSet):
+    queryset = Payment.objects.all()
+    serializer_class = PaymentSerializer
+
+    def get_queryset(self):
+        if self.request.user.is_authenticated:
+            if self.request.user.is_staff or self.request.user.groups.filter(name='Модераторы').exists():
+                return Payment.objects.all()
+            return Payment.objects.filter(user=self.request.user)
+        return Payment.objects.none()
+
+
+class UserProfileViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserProfileSerializer
+
+    def get_queryset(self):
+        return User.objects.filter(id=self.request.user.id)
+
+
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+
+    def get_permissions(self):
+        if self.action in ['retrieve', 'list']:
+            return [permissions.IsAuthenticated()]
+        elif self.action in ['update', 'partial_update', 'destroy']:
+            return [permissions.IsAuthenticated(), IsOwnerOrReadOnly()]
+        return [permissions.IsAuthenticated()]
 
 
 class RegisterView(generics.CreateAPIView):
