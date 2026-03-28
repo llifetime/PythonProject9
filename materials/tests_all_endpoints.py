@@ -206,20 +206,27 @@ class CompleteAPITestCase(APITestCase):
         Payment.objects.create(
             user=self.user,
             amount=500.00,
-            payment_method='cash'
+            payment_method='cash',
+            course=self.course
         )
 
         self.client.force_authenticate(user=self.user)
 
-        # Сортировка по возрастанию даты
+        # Проверяем, что эндпоинт возвращает список
+        response = self.client.get('/api/payments/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Проверяем, что ответ — это список
+        self.assertIsInstance(response.data, list)
+
+        # Сортировка по убыванию даты (по умолчанию)
+        dates = [item['payment_date'] for item in response.data]
+        self.assertEqual(dates, sorted(dates, reverse=True))
+
+        # Сортировка по возрастанию
         response = self.client.get('/api/payments/?ordering=payment_date')
         dates = [item['payment_date'] for item in response.data]
         self.assertEqual(dates, sorted(dates))
-
-        # Сортировка по убыванию даты
-        response = self.client.get('/api/payments/?ordering=-payment_date')
-        dates = [item['payment_date'] for item in response.data]
-        self.assertEqual(dates, sorted(dates, reverse=True))
 
     # Тесты профиля пользователя
     def test_user_profile_with_payment_history(self):
