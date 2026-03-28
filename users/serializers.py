@@ -63,9 +63,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'email', 'first_name', 'last_name', 'city', 
                   'payment_history', 'subscriptions']
-    
+
     def get_payment_history(self, obj):
-        payments = obj.payments.all()[:10]
+        payments = obj.materials_payments.all()[:10]  # ← используем правильный related_name
         return PaymentSerializer(payments, many=True).data
     
     def get_subscriptions(self, obj):

@@ -1,7 +1,7 @@
 ﻿from rest_framework import viewsets, filters, permissions, generics, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.permissions import AllowAny
 from .models import Payment, Subscription, User
 from .serializers import (
     PaymentSerializer, UserProfileSerializer, 
@@ -13,7 +13,7 @@ from .permissions import IsOwnerOrReadOnly
 class RegisterView(generics.CreateAPIView):
     """Отдельный эндпоинт для регистрации"""
     queryset = User.objects.all()
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [AllowAny]
     serializer_class = RegisterSerializer
 
 

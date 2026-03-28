@@ -66,14 +66,14 @@ class CourseViewSet(viewsets.ModelViewSet):
         return SimpleCourseSerializer
 
     def get_permissions(self):
-        if self.action == 'create':
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]  # ← разрешить анонимный доступ
+        elif self.action == 'create':
             return [permissions.IsAuthenticated(), IsNotModerator()]
         elif self.action in ['update', 'partial_update']:
             return [permissions.IsAuthenticated(), IsOwnerOrModerator()]
         elif self.action == 'destroy':
             return [permissions.IsAuthenticated(), IsOwnerOnly()]
-        elif self.action in ['retrieve', 'list']:
-            return [permissions.AllowAny()]
         return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
@@ -102,14 +102,14 @@ class LessonViewSet(viewsets.ModelViewSet):
     pagination_class = LessonPaginator
 
     def get_permissions(self):
-        if self.action == 'create':
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]  # ← разрешить анонимный доступ
+        elif self.action == 'create':
             return [permissions.IsAuthenticated(), IsNotModerator()]
         elif self.action in ['update', 'partial_update']:
             return [permissions.IsAuthenticated(), IsOwnerOrModerator()]
         elif self.action == 'destroy':
             return [permissions.IsAuthenticated(), IsOwnerOnly()]
-        elif self.action in ['retrieve', 'list']:
-            return [permissions.AllowAny()]
         return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
