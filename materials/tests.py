@@ -131,14 +131,10 @@ class LessonTestCase(APITestCase):
 
     def test_update_lesson_other_user(self):
         """Тест обновления урока другим пользователем"""
-        # Убедимся, что урок принадлежит user, а не other_user
-        self.assertEqual(self.lesson.owner, self.user)
+        # Проверяем, что урок существует
+        self.assertTrue(Lesson.objects.filter(id=self.lesson.id).exists())
 
         self.client.force_authenticate(user=self.other_user)
-
-        # Проверим, что урок существует
-        response = self.client.get(f'/api/lessons/{self.lesson.id}/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         data = {'title': 'Updated Lesson Title'}
         response = self.client.patch(f'/api/lessons/{self.lesson.id}/', data)

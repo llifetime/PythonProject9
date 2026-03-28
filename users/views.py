@@ -54,8 +54,6 @@ class SubscriptionViewSet(GenericViewSet):
     serializer_class = SubscriptionSerializer
 
     def get_permissions(self):
-        if not self.request.user.is_authenticated:
-            return [permissions.IsAuthenticated()]
         return [permissions.IsAuthenticated()]
 
     @action(detail=True, methods=['post'], url_path='subscribe')

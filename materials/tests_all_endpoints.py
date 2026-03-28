@@ -212,20 +212,22 @@ class CompleteAPITestCase(APITestCase):
 
         self.client.force_authenticate(user=self.user)
 
-        # Проверяем, что эндпоинт возвращает список
+        # Проверяем, что эндпоинт возвращает пагинированный ответ
         response = self.client.get('/api/payments/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        # Проверяем, что ответ — это список
-        self.assertIsInstance(response.data, list)
+        # Извлекаем результаты из пагинации
+        results = response.data.get('results', [])
+        self.assertIsInstance(results, list)
 
         # Сортировка по убыванию даты (по умолчанию)
-        dates = [item['payment_date'] for item in response.data]
+        dates = [item['payment_date'] for item in results]
         self.assertEqual(dates, sorted(dates, reverse=True))
 
         # Сортировка по возрастанию
         response = self.client.get('/api/payments/?ordering=payment_date')
-        dates = [item['payment_date'] for item in response.data]
+        results = response.data.get('results', [])
+        dates = [item['payment_date'] for item in results]
         self.assertEqual(dates, sorted(dates))
 
     # Тесты профиля пользователя
