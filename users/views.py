@@ -1,75 +1,40 @@
-﻿from rest_framework import viewsets, filters, permissions, generics, status
+﻿from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny
-from .models import Payment, Subscription, User
-from .serializers import (
-    PaymentSerializer, UserProfileSerializer, 
-    UserSerializer, RegisterSerializer, SubscriptionSerializer
-)
-from .permissions import IsOwnerOrReadOnly
+from rest_framework.viewsets import GenericViewSet
 
 
-class RegisterView(generics.CreateAPIView):
-    """Отдельный эндпоинт для регистрации"""
-    queryset = User.objects.all()
-    permission_classes = [AllowAny]
-    serializer_class = RegisterSerializer
-
-
-class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-    
-    def get_permissions(self):
-        if self.action in ['retrieve', 'list']:
-            return [permissions.IsAuthenticated()]
-        elif self.action in ['update', 'partial_update', 'destroy']:
-            return [permissions.IsAuthenticated(), IsOwnerOrReadOnly()]
-        return [permissions.IsAuthenticated()]
-
-
-class PaymentViewSet(viewsets.ModelViewSet):
-    serializer_class = PaymentSerializer
-
-    def get_queryset(self):
-        if self.request.user.is_authenticated:
-            if self.request.user.is_staff or self.request.user.groups.filter(name='Модераторы').exists():
-                return Payment.objects.all()
-            return Payment.objects.filter(user=self.request.user)
-        return Payment.objects.none()
-
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)  # ← возвращаем список, а не объект
-
-
-class UserProfileViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = User.objects.all()
-    serializer_class = UserProfileSerializer
-    
-    def get_queryset(self):
-        return User.objects.filter(id=self.request.user.id)
-
-
-class SubscriptionViewSet(viewsets.GenericViewSet):
+class SubscriptionViewSet(GenericViewSet):
     queryset = Subscription.objects.all()
     serializer_class = SubscriptionSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
+
+    def get_permissions(self):
+        """
+        Возвращаем 401 для неавторизованных, 403 для авторизованных без прав
+        """
+        if not self.request.user.is_authenticated:
+            return [permissions.IsAuthenticated()]  # вернет 401
+        return [permissions.IsAuthenticated()]
+
     @action(detail=True, methods=['post'], url_path='subscribe')
     def subscribe(self, request, pk=None):
         """Подписка на курс"""
+        # Проверка аутентификации
+        if not request.user.is_authenticated:
+            return Response(
+                {"detail": "Authentication credentials were not provided."},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
         try:
             from materials.models import Course
             course = Course.objects.get(pk=pk)
-            
+
             subscription, created = Subscription.objects.get_or_create(
                 user=request.user,
                 course=course
             )
-            
+
             if created:
                 return Response(
                     {"status": "subscribed", "message": "Вы успешно подписались на курс"},
@@ -85,19 +50,26 @@ class SubscriptionViewSet(viewsets.GenericViewSet):
                 {"error": "Курс не найден"},
                 status=status.HTTP_404_NOT_FOUND
             )
-    
+
     @action(detail=True, methods=['post'], url_path='unsubscribe')
     def unsubscribe(self, request, pk=None):
         """Отписка от курса"""
+        # Проверка аутентификации
+        if not request.user.is_authenticated:
+            return Response(
+                {"detail": "Authentication credentials were not provided."},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
         try:
             from materials.models import Course
             course = Course.objects.get(pk=pk)
-            
+
             deleted_count, _ = Subscription.objects.filter(
                 user=request.user,
                 course=course
             ).delete()
-            
+
             if deleted_count > 0:
                 return Response(
                     {"status": "unsubscribed", "message": "Вы успешно отписались от курса"},
