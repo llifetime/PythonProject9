@@ -80,31 +80,20 @@ class Payment(models.Model):
 
 
 class Subscription(models.Model):
-    """
-    Модель подписки пользователя на обновления курса
-    """
     user = models.ForeignKey(
-        User,
+        settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='subscriptions',
-        verbose_name='Пользователь'
+        related_name='subscriptions'
     )
     course = models.ForeignKey(
         'materials.Course',
         on_delete=models.CASCADE,
-        related_name='subscriptions',
-        verbose_name='Курс'
+        related_name='subscriptions'
     )
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name='Дата подписки'
-    )
-    
+    created_at = models.DateTimeField(auto_now_add=True)
+
     class Meta:
-        verbose_name = 'Подписка'
-        verbose_name_plural = 'Подписки'
-        unique_together = ('user', 'course')
-        ordering = ['-created_at']
-    
+        unique_together = ['user', 'course']
+
     def __str__(self):
-        return f"{self.user.email} подписан на {self.course.title}"
+        return f"{self.user.email} - {self.course.title}"
