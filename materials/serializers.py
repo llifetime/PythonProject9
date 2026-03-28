@@ -11,17 +11,23 @@ class SimpleLessonSerializer(serializers.ModelSerializer):
 
 
 class SimpleCourseSerializer(serializers.ModelSerializer):
-    lessons_count = serializers.SerializerMethodField()
+    lessons_count = serializers.IntegerField(source='lessons.count', read_only=True)
     lessons = SimpleLessonSerializer(many=True, read_only=True)
+    is_subscribed = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
-        fields = ['id', 'title', 'description', 'price', 'lessons_count', 'lessons', 'created_at', 'updated_at',
-                  'owner']
-        read_only_fields = ['owner']
+        fields = '__all__'
 
-    def get_lessons_count(self, obj):
-        return obj.lessons.count()
+    def get_is_subscribed(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            from users.models import Subscription
+            return Subscription.objects.filter(
+                user=request.user,
+                course=obj
+            ).exists()
+        return False
 
 
 class CourseCreateSerializer(serializers.ModelSerializer):

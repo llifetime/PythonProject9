@@ -30,23 +30,19 @@ class UserViewSet(viewsets.ModelViewSet):
 
 
 class PaymentViewSet(viewsets.ModelViewSet):
-    queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
-    
-    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['course', 'lesson', 'payment_method']
-    ordering_fields = ['payment_date']
-    ordering = ['-payment_date']
-    
+
     def get_queryset(self):
         if self.request.user.is_authenticated:
             if self.request.user.is_staff or self.request.user.groups.filter(name='Модераторы').exists():
                 return Payment.objects.all()
             return Payment.objects.filter(user=self.request.user)
         return Payment.objects.none()
-    
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)  # ← возвращаем список, а не объект
 
 
 class UserProfileViewSet(viewsets.ReadOnlyModelViewSet):

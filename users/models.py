@@ -1,5 +1,6 @@
 ﻿from django.contrib.auth.models import AbstractUser
 from django.db import models
+from rest_framework import settings
 
 
 class User(AbstractUser):
@@ -22,10 +23,11 @@ class User(AbstractUser):
 
 
 class Payment(models.Model):
-    PAYMENT_METHOD_CHOICES = [
-        ('cash', 'Наличные'),
-        ('transfer', 'Перевод на счет'),
-    ]
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='payments'  # ← добавьте это
+    )
     
     user = models.ForeignKey(
         User, 

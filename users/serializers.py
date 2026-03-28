@@ -7,20 +7,19 @@ User = get_user_model()
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    """Сериализатор для регистрации"""
     password = serializers.CharField(write_only=True)
-    
+
     class Meta:
         model = User
-        fields = ['email', 'password', 'first_name', 'last_name', 'username']
-    
+        fields = ['email', 'username', 'password', 'first_name', 'last_name']
+
     def create(self, validated_data):
         user = User.objects.create_user(
             email=validated_data['email'],
+            username=validated_data['username'],
             password=validated_data['password'],
             first_name=validated_data.get('first_name', ''),
-            last_name=validated_data.get('last_name', ''),
-            username=validated_data.get('username', validated_data['email'])
+            last_name=validated_data.get('last_name', '')
         )
         return user
 

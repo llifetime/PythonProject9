@@ -73,7 +73,7 @@ class CourseViewSet(viewsets.ModelViewSet):
         elif self.action == 'destroy':
             return [permissions.IsAuthenticated(), IsOwnerOnly()]
         elif self.action in ['retrieve', 'list']:
-            return [permissions.IsAuthenticated()]
+            return [permissions.AllowAny()]
         return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
@@ -109,7 +109,7 @@ class LessonViewSet(viewsets.ModelViewSet):
         elif self.action == 'destroy':
             return [permissions.IsAuthenticated(), IsOwnerOnly()]
         elif self.action in ['retrieve', 'list']:
-            return [permissions.IsAuthenticated()]
+            return [permissions.AllowAny()]
         return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
