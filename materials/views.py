@@ -11,9 +11,8 @@ from materials.serializers import (
 
 
 class IsNotModerator(BasePermission):
-    """Разрешение для пользователей, которые не являются модераторами"""
-
     def has_permission(self, request, view):
+        # Неавторизованные пользователи не могут создавать
         if not request.user.is_authenticated:
             return False
         return not request.user.groups.filter(name='Модераторы').exists()
@@ -103,11 +102,6 @@ class LessonViewSet(viewsets.ModelViewSet):
         return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
-        # Для неаутентифицированных пользователей возвращаем все курсы (только для чтения)
-        if not self.request.user.is_authenticated:
-            return Course.objects.all()  # ← вернуть все для чтения
-
-        if self.request.user.groups.filter(name='Модераторы').exists():
-            return Course.objects.all()
-
-        return Course.objects.filter(owner=self.request.user)
+        # Для всех запросов возвращаем все уроки
+        # Права проверяются в permissions
+        return Lesson.objects.all()

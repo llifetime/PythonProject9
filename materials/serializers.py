@@ -3,11 +3,12 @@ from .models import Course, Lesson, Payment, UserCourseAccess
 
 
 class SimpleLessonSerializer(serializers.ModelSerializer):
+    course = serializers.PrimaryKeyRelatedField(read_only=True)  # или StringRelatedField
+
     class Meta:
         model = Lesson
         fields = ['id', 'title', 'description', 'content', 'video_url', 'order', 'course', 'owner', 'created_at',
                   'updated_at']
-        read_only_fields = ['owner']
 
 
 class SimpleCourseSerializer(serializers.ModelSerializer):

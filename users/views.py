@@ -11,6 +11,11 @@ from .serializers import (
 )
 from .permissions import IsOwnerOrReadOnly
 
+class RegisterView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    permission_classes = [AllowAny]  # ← обязательно AllowAny
+    serializer_class = RegisterSerializer
+
 
 class PaymentViewSet(viewsets.ModelViewSet):
     queryset = Payment.objects.all()
@@ -43,10 +48,6 @@ class UserViewSet(viewsets.ModelViewSet):
             return [permissions.IsAuthenticated(), IsOwnerOrReadOnly()]
         return [permissions.IsAuthenticated()]
 
-class RegisterView(generics.CreateAPIView):
-    queryset = User.objects.all()
-    permission_classes = [AllowAny]  # ← обязательно AllowAny
-    serializer_class = RegisterSerializer
 
 
 class SubscriptionViewSet(GenericViewSet):
