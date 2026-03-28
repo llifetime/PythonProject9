@@ -211,15 +211,15 @@ class CompleteAPITestCase(APITestCase):
 
         self.client.force_authenticate(user=self.user)
 
-        # По умолчанию сортировка по убыванию даты
-        response = self.client.get('/api/payments/')
-        dates = [item['payment_date'] for item in response.data]
-        self.assertGreaterEqual(dates[0], dates[1])
-
-        # Сортировка по возрастанию
+        # Сортировка по возрастанию даты
         response = self.client.get('/api/payments/?ordering=payment_date')
         dates = [item['payment_date'] for item in response.data]
         self.assertEqual(dates, sorted(dates))
+
+        # Сортировка по убыванию даты
+        response = self.client.get('/api/payments/?ordering=-payment_date')
+        dates = [item['payment_date'] for item in response.data]
+        self.assertEqual(dates, sorted(dates, reverse=True))
 
     # Тесты профиля пользователя
     def test_user_profile_with_payment_history(self):

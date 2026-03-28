@@ -67,9 +67,9 @@ class CourseViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
-            return [permissions.AllowAny()]  # ← разрешить анонимный доступ
+            return [permissions.AllowAny()]  # ← анонимный доступ к чтению
         elif self.action == 'create':
-            return [permissions.IsAuthenticated(), IsNotModerator()]
+            return [permissions.IsAuthenticated(), IsNotModerator()]  # ← требует аутентификации
         elif self.action in ['update', 'partial_update']:
             return [permissions.IsAuthenticated(), IsOwnerOrModerator()]
         elif self.action == 'destroy':
@@ -103,9 +103,9 @@ class LessonViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
-            return [permissions.AllowAny()]  # ← разрешить анонимный доступ
+            return [permissions.AllowAny()]  # ← анонимный доступ к чтению
         elif self.action == 'create':
-            return [permissions.IsAuthenticated(), IsNotModerator()]
+            return [permissions.IsAuthenticated(), IsNotModerator()]  # ← требует аутентификации
         elif self.action in ['update', 'partial_update']:
             return [permissions.IsAuthenticated(), IsOwnerOrModerator()]
         elif self.action == 'destroy':
