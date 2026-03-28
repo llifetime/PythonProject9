@@ -21,6 +21,12 @@ class User(AbstractUser):
     def __str__(self):
         return self.email
 
+PAYMENT_METHOD_CHOICES = [
+    ('card', 'Банковская карта'),
+    ('cash', 'Наличные'),
+    ('transfer', 'Банковский перевод'),
+    ('other', 'Другое'),
+]
 
 class Payment(models.Model):
     user = models.ForeignKey(
