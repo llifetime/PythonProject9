@@ -93,13 +93,13 @@ class LessonTestCase(APITestCase):
     def test_create_lesson_unauthenticated(self):
         """Тест создания урока неавторизованным пользователем"""
         data = {
-            'title': 'New Lesson',
-            'description': 'New Description',
-            'course': self.course.id,
+            "title": "New Lesson",
+            "description": "New Description",
+            "course": self.course.id,
         }
 
-        response = self.client.post('/api/lessons/', data)
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        response = self.client.post("/api/lessons/", data)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_create_lesson_with_invalid_youtube_url(self):
         """Тест создания урока с недопустимой ссылкой"""

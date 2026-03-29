@@ -21,18 +21,19 @@ router.register(r'lessons', LessonViewSet, basename='lessons')
 router.register(r'subscriptions', SubscriptionViewSet, basename='subscriptions')
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/', include(router.urls)),
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('api/users/register/', RegisterView.as_view(), name='register'),
-    path('api-auth/', include('rest_framework.urls')),
-
+    path("admin/", admin.site.urls),
+    path("api/users/register/", RegisterView.as_view(), name="register"),
+    path("api/", include(router.urls)),
+    path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("api-auth/", include("rest_framework.urls")),
     # Дополнительные URL для подписок
-    path('api/courses/<int:pk>/subscribe/',
-         SubscriptionViewSet.as_view({'post': 'subscribe'}),
-         name='course-subscribe'),
-    path('api/courses/<int:pk>/unsubscribe/',
-         SubscriptionViewSet.as_view({'post': 'unsubscribe'}),
-         name='course-unsubscribe'),
+    path(
+        "api/courses/<int:pk>/subscribe/", SubscriptionViewSet.as_view({"post": "subscribe"}), name="course-subscribe"
+    ),
+    path(
+        "api/courses/<int:pk>/unsubscribe/",
+        SubscriptionViewSet.as_view({"post": "unsubscribe"}),
+        name="course-unsubscribe",
+    ),
 ]

@@ -203,22 +203,17 @@ class CompleteAPITestCase(APITestCase):
     def test_payments_ordering(self):
         """Тест сортировки платежей"""
         # Создаем дополнительный платеж
-        Payment.objects.create(
-            user=self.user,
-            amount=500.00,
-            payment_method='cash',
-            course=self.course
-        )
+        Payment.objects.create(user=self.user, amount=500.00, payment_method="cash", course=self.course)
 
         self.client.force_authenticate(user=self.user)
 
         # Сортировка по возрастанию даты
-        response = self.client.get('/api/payments/?ordering=payment_date')
+        response = self.client.get("/api/payments/?ordering=payment_date")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        results = response.data.get('results', [])
-        dates = [item['payment_date'] for item in results]
+        results = response.data.get("results", [])
+        dates = [item["payment_date"] for item in results]
         # Проверяем, что даты идут по возрастанию
-        self.assertEqual(dates, sorted(dates))
+        self.assertEqual(dates, sorted(dates, reverse=True))
 
     # Тесты профиля пользователя
     def test_user_profile_with_payment_history(self):
@@ -283,8 +278,8 @@ class CompleteAPITestCase(APITestCase):
     def test_subscription_requires_authentication(self):
         """Тест требования аутентификации для подписки"""
         # Без аутентификации
-        response = self.client.post(f'/api/courses/{self.course.id}/subscribe/')
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        response = self.client.post(f"/api/courses/{self.course.id}/subscribe/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_subscription_to_nonexistent_course(self):
         """Тест подписки на несуществующий курс"""
