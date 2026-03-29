@@ -1,39 +1,70 @@
-deploy:
-needs: test
-runs-on: ubuntu-latest
-if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/HW36'
-  
-steps:
-    - uses: actions/checkout@v4
-    
-    - name: Cache pip dependencies
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-    
-    - name: Setup SSH
-      run: |
-        mkdir -p ~/.ssh/
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-        chmod 600 ~/.ssh/deploy_key
-        ssh-keyscan -H 158.160.236.174 >> ~/.ssh/known_hosts
-    
-    - name: Deploy to server
-      run: |
-        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@158.160.236.174 << 'EOF'
-          cd /home/deploy/webapps/myproject
-          git pull origin ${{ github.ref_name }}
-          source venv/bin/activate
-          pip install -r requirements.txt
-          python manage.py migrate
-          python manage.py collectstatic --noinput
-          sudo supervisorctl restart myproject
-          sudo systemctl reload nginx
-        EOF
+name: CI/CD Pipeline
 
-    - name: Notify success
-      if: success()
-      run: echo "Deploy successful!"
+on:
+  push:
+    branches: [ main, master, HW36 ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries=5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run tests
+        env:
+          DB_NAME: testdb
+          DB_USER: testuser
+          DB_PASSWORD: testpass
+        run: |
+          python manage.py migrate
+          python manage.py test
+
+  deploy:
+    needs: test # Эта строка теперь внутри jobs.deploy
+    runs-on: ubuntu-latest # Эта строка теперь внутри jobs.deploy
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh/
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H 158.160.236.174 >> ~/.ssh/known_hosts
+    
+      - name: Deploy to server
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@158.160.236.174 << 'EOF'
+            cd /home/deploy/webapps/myproject
+            git pull origin ${{ github.ref_name }}
+            source venv/bin/activate
+            pip install -r requirements.txt
+            python manage.py migrate
+            python manage.py collectstatic --noinput
+            sudo supervisorctl restart myproject
+            sudo systemctl reload nginx
+          EOF
