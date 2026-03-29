@@ -49,7 +49,7 @@ jobs:
   deploy:
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/HW36'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
 
     steps:
       - uses: actions/checkout@v4
@@ -61,11 +61,37 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H 158.160.236.174 >> ~/.ssh/known_hosts
 
-      - name: Deploy to Server
+      - name: Deploy to Server (Clone or Pull)
         env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          PROJECT_DIR: /home/deploy/webapps/myproject
         run: |
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no deploy@158.160.236.174 << 'SSH'
-            cd /home/deploy/webapps/myproject || exit
-            git pull origin ${{ github.ref_name }}
-            source venv/bin/activate ||
+            echo "📦 Starting deployment..."
+            
+            # Создаем директорию, если ее нет, и переходим в нее
+            mkdir -p $PROJECT_DIR
+            cd $PROJECT_DIR
+
+            # Проверяем, является ли папка git-репозиторием
+            if [ -d ".git" ]; then
+              echo "🔄 Found .git directory. Updating code..."
+              git fetch --all --prune
+              git reset --hard origin/${{ github.ref_name }}
+            else
+              echo "📦 No .git found. Cloning repository..."
+              git clone git@github.com:llifetime/PythonProject9.git .
+            fi
+
+            # Активация виртуального окружения и установка зависимостей
+            source venv/bin/activate || exit 1
+            pip install -r requirements.txt --upgrade || exit 1
+
+            # Django specific commands
+            python manage.py migrate --noinput || exit 1
+            python manage.py collectstatic --noinput || exit 1
+
+            # Перезапуск сервисов (программа выполнится, даже если сервисов нет)
+            echo "🔄 Restarting services..."
+            sudo supervisorctl restart myproject || echo "Supervisor not found or service 'myproject' missing."
+            sudo systemctl reload nginx || echo "Nginx not found or not managed by systemd."
+SSH
