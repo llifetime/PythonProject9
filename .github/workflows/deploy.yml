@@ -7,6 +7,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
     services:
       postgres:
         image: postgres:15
@@ -24,47 +25,47 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
       - name: Run tests
         env:
           DB_NAME: testdb
           DB_USER: testuser
           DB_PASSWORD: testpass
+          SECRET_KEY: django-insecure-test-key
         run: |
           python manage.py migrate
           python manage.py test
 
   deploy:
-    needs: test # Эта строка теперь внутри jobs.deploy
-    runs-on: ubuntu-latest # Эта строка теперь внутри jobs.deploy
+    needs: test
+    runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-    
+
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Setup SSH
+
+      - name: Setup SSH Key on Runner
         run: |
           mkdir -p ~/.ssh/
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H 158.160.236.174 >> ~/.ssh/known_hosts
-    
-      - name: Deploy to server
+
+      - name: Deploy to Server
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@158.160.236.174 << 'EOF'
-            cd /home/deploy/webapps/myproject
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no deploy@158.160.236.174 << 'SSH'
+            cd /home/deploy/webapps/myproject || exit
             git pull origin ${{ github.ref_name }}
-            source venv/bin/activate
-            pip install -r requirements.txt
-            python manage.py migrate
-            python manage.py collectstatic --noinput
-            sudo supervisorctl restart myproject
-            sudo systemctl reload nginx
-          EOF
+            source venv/bin/activate ||
