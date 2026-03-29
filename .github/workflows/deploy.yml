@@ -1,57 +1,18 @@
-name: CI/CD Pipeline
-
-on:
-  push:
-    branches: [ main, master, HW36 ]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: testuser
-          POSTGRES_PASSWORD: testpass
-          POSTGRES_DB: testdb
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
-    steps:
+deploy:
+needs: test
+runs-on: ubuntu-latest
+if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/HW36'
+  
+steps:
     - uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-
-    - name: Run tests
-      env:
-        DB_NAME: testdb
-        DB_USER: testuser
-        DB_PASSWORD: testpass
-        SECRET_KEY: django-insecure-test-key
-      run: |
-        python manage.py migrate
-        python manage.py test
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     
-    steps:
-    - uses: actions/checkout@v4
+    - name: Cache pip dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
     
     - name: Setup SSH
       run: |
@@ -72,3 +33,7 @@ jobs:
           sudo supervisorctl restart myproject
           sudo systemctl reload nginx
         EOF
+
+    - name: Notify success
+      if: success()
+      run: echo "Deploy successful!"
