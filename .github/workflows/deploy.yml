@@ -66,32 +66,27 @@ jobs:
           PROJECT_DIR: /home/deploy/webapps/myproject
         run: |
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no deploy@158.160.236.174 << 'SSH'
-            echo "📦 Starting deployment..."
-            
-            # Создаем директорию, если ее нет, и переходим в нее
-            mkdir -p $PROJECT_DIR
-            cd $PROJECT_DIR
+            echo "Starting deployment..."
+            mkdir -p "$PROJECT_DIR"
+            cd "$PROJECT_DIR" || exit
 
-            # Проверяем, является ли папка git-репозиторием
             if [ -d ".git" ]; then
-              echo "🔄 Found .git directory. Updating code..."
+              echo "Git repo found. Updating code..."
               git fetch --all --prune
               git reset --hard origin/${{ github.ref_name }}
             else
-              echo "📦 No .git found. Cloning repository..."
+              echo "No git repo found. Cloning..."
+              # ЗАМЕНИТЕ ЭТУ СТРОКУ НА АДРЕС ВАШЕГО РЕПОЗИТОРИЯ
               git clone git@github.com:llifetime/PythonProject9.git .
             fi
 
-            # Активация виртуального окружения и установка зависимостей
-            source venv/bin/activate || exit 1
-            pip install -r requirements.txt --upgrade || exit 1
+            source venv/bin/activate || exit
+            pip install -r requirements.txt --upgrade || exit
 
-            # Django specific commands
-            python manage.py migrate --noinput || exit 1
-            python manage.py collectstatic --noinput || exit 1
+            python manage.py migrate --noinput || exit
+            python manage.py collectstatic --noinput || exit
 
-            # Перезапуск сервисов (программа выполнится, даже если сервисов нет)
-            echo "🔄 Restarting services..."
-            sudo supervisorctl restart myproject || echo "Supervisor not found or service 'myproject' missing."
-            sudo systemctl reload nginx || echo "Nginx not found or not managed by systemd."
-SSH
+            echo "Restarting services..."
+            sudo supervisorctl restart myproject || echo "Supervisor not found"
+            sudo systemctl reload nginx || echo "Nginx not found"
+          SSH # <-- КРАЙНЕ ВАЖНО: Здесь НЕТ отступа!
