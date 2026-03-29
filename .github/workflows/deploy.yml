@@ -61,32 +61,39 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H 158.160.236.174 >> ~/.ssh/known_hosts
 
-      - name: Deploy to Server (Clone or Pull)
+      - name: Deploy to Server (Full Redeploy)
         env:
           PROJECT_DIR: /home/deploy/webapps/myproject
+          TEMP_DIR: /home/deploy/webapps/myproject_tmp
         run: |
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no deploy@158.160.236.174 << 'SSH'
-            echo "Starting deployment..."
-            mkdir -p "$PROJECT_DIR"
-            cd "$PROJECT_DIR" || exit
+            echo "🚀 Starting full deployment..."
+            
+            # Создаем временную директорию для нового кода
+            mkdir -p "$TEMP_DIR"
+            cd "$TEMP_DIR" || exit
 
-            if [ -d ".git" ]; then
-              echo "Git repo found. Updating code..."
-              git fetch --all --prune
-              git reset --hard origin/${{ github.ref_name }}
-            else
-              echo "No git repo found. Cloning..."
-              # ЗАМЕНИТЕ ЭТУ СТРОКУ НА АДРЕС ВАШЕГО РЕПОЗИТОРИЯ
-              git clone git@github.com:llifetime/PythonProject9.git .
-            fi
+            echo "⬇️ Cloning the latest version from GitHub..."
+            # ЗАМЕНИТЕ ЭТУ СТРОКУ НА АДРЕС ВАШЕГО РЕПОЗИТОРИЯ
+            git clone git@github.com:llifetime/PythonProject9
 
+            echo "📦 Installing dependencies..."
             source venv/bin/activate || exit
             pip install -r requirements.txt --upgrade || exit
 
+            echo "🔄 Applying database migrations..."
             python manage.py migrate --noinput || exit
+
+            echo "🗑️ Removing old project directory..."
+            rm -rf "$PROJECT_DIR"
+
+            echo "📦 Moving new code into place..."
+            mv "$TEMP_DIR" "$PROJECT_DIR"
+
+            echo "📷 Collecting static files..."
             python manage.py collectstatic --noinput || exit
 
-            echo "Restarting services..."
+            echo "🔥 Restarting services..."
             sudo supervisorctl restart myproject || echo "Supervisor not found"
             sudo systemctl reload nginx || echo "Nginx not found"
           SSH # <-- КРАЙНЕ ВАЖНО: Здесь НЕТ отступа!
