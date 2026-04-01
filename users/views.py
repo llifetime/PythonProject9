@@ -1,68 +1,126 @@
-from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import action
+﻿from rest_framework import viewsets, generics, permissions, status
 from rest_framework.response import Response
-from django.contrib.auth import update_session_auth_hash
-from .models import User
+from rest_framework.decorators import action
+from rest_framework.viewsets import GenericViewSet
+from rest_framework.permissions import AllowAny
+
+from .models import Payment, Subscription, User
 from .serializers import (
-    UserSerializer, UserCreateSerializer,
-    UserUpdateSerializer, PasswordChangeSerializer
+    PaymentSerializer, UserProfileSerializer,
+    UserSerializer, RegisterSerializer, SubscriptionSerializer
 )
+from .permissions import IsOwnerOrReadOnly
+
+class RegisterView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    permission_classes = [AllowAny]  # ← обязательно AllowAny
+    serializer_class = RegisterSerializer
+
+
+class PaymentViewSet(viewsets.ModelViewSet):
+    queryset = Payment.objects.all()
+    serializer_class = PaymentSerializer
+
+    def get_queryset(self):
+        if self.request.user.is_authenticated:
+            if self.request.user.is_staff or self.request.user.groups.filter(name='Модераторы').exists():
+                return Payment.objects.all()
+            return Payment.objects.filter(user=self.request.user)
+        return Payment.objects.none()
+
+
+class UserProfileViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserProfileSerializer
+
+    def get_queryset(self):
+        return User.objects.filter(id=self.request.user.id)
 
 
 class UserViewSet(viewsets.ModelViewSet):
-    """ViewSet для управления пользователями"""
-
-    queryset = User.objects.all().order_by('email')
-    permission_classes = [permissions.AllowAny]  # Временно открыт доступ для всех
-
-    def get_serializer_class(self):
-        """Выбор сериализатора в зависимости от действия"""
-        if self.action == 'create':
-            return UserCreateSerializer
-        elif self.action in ['update', 'partial_update']:
-            return UserUpdateSerializer
-        elif self.action == 'change_password':
-            return PasswordChangeSerializer
-        return UserSerializer
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
 
     def get_permissions(self):
-        """Настройка разрешений для разных действий"""
-        if self.action == 'create':
-            permission_classes = [permissions.AllowAny]
-        elif self.action == 'list':
-            permission_classes = [permissions.IsAdminUser]
-        else:
-            permission_classes = [permissions.IsAuthenticated]
-        return [permission() for permission in permission_classes]
+        if self.action in ['retrieve', 'list']:
+            return [permissions.IsAuthenticated()]
+        elif self.action in ['update', 'partial_update', 'destroy']:
+            return [permissions.IsAuthenticated(), IsOwnerOrReadOnly()]
+        return [permissions.IsAuthenticated()]
 
-    @action(detail=True, methods=['post'], url_path='change-password')
-    def change_password(self, request, pk=None):
-        """Изменение пароля пользователя"""
-        user = self.get_object()
-        serializer = PasswordChangeSerializer(data=request.data)
 
-        if serializer.is_valid():
-            # Проверка старого пароля
-            if not user.check_password(serializer.validated_data['old_password']):
+
+class SubscriptionViewSet(GenericViewSet):
+    queryset = Subscription.objects.all()
+    serializer_class = SubscriptionSerializer
+
+    def get_permissions(self):
+        return [permissions.IsAuthenticated()]
+
+    @action(detail=True, methods=['post'], url_path='subscribe')
+    def subscribe(self, request, pk=None):
+        """Подписка на курс"""
+        if not request.user.is_authenticated:
+            return Response(
+                {"detail": "Authentication credentials were not provided."},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            from materials.models import Course
+            course = Course.objects.get(pk=pk)
+
+            subscription, created = Subscription.objects.get_or_create(
+                user=request.user,
+                course=course
+            )
+
+            if created:
                 return Response(
-                    {"old_password": ["Wrong password."]},
-                    status=status.HTTP_400_BAD_REQUEST
+                    {"status": "subscribed", "message": "Вы успешно подписались на курс"},
+                    status=status.HTTP_201_CREATED
                 )
+            else:
+                return Response(
+                    {"status": "already_subscribed", "message": "Вы уже подписаны на этот курс"},
+                    status=status.HTTP_200_OK
+                )
+        except Course.DoesNotExist:
+            return Response(
+                {"error": "Курс не найден"},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
-            # Установка нового пароля
-            user.set_password(serializer.validated_data['new_password'])
-            user.save()
+    @action(detail=True, methods=['post'], url_path='unsubscribe')
+    def unsubscribe(self, request, pk=None):
+        """Отписка от курса"""
+        if not request.user.is_authenticated:
+            return Response(
+                {"detail": "Authentication credentials were not provided."},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
 
-            # Обновление сессии, если пользователь меняет свой пароль
-            if user == request.user:
-                update_session_auth_hash(request, user)
+        try:
+            from materials.models import Course
+            course = Course.objects.get(pk=pk)
 
-            return Response({"detail": "Password changed successfully."})
+            deleted_count, _ = Subscription.objects.filter(
+                user=request.user,
+                course=course
+            ).delete()
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    @action(detail=False, methods=['get'], url_path='profile')
-    def profile(self, request):
-        """Получение профиля текущего пользователя"""
-        serializer = self.get_serializer(request.user)
-        return Response(serializer.data)
+            if deleted_count > 0:
+                return Response(
+                    {"status": "unsubscribed", "message": "Вы успешно отписались от курса"},
+                    status=status.HTTP_200_OK
+                )
+            else:
+                return Response(
+                    {"status": "not_subscribed", "message": "Вы не были подписаны на этот курс"},
+                    status=status.HTTP_200_OK
+                )
+        except Course.DoesNotExist:
+            return Response(
+                {"error": "Курс не найден"},
+                status=status.HTTP_404_NOT_FOUND
+            )

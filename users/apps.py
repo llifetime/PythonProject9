@@ -1,14 +1,13 @@
-from django.apps import AppConfig
+﻿from django.apps import AppConfig
 
 
 class UsersConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'users'
-    verbose_name = 'Users'
-
+    
     def ready(self):
-        """Импорт сигналов при загрузке приложения"""
+        # Убираем импорт сигналов, если их нет
         try:
-            import users.signals  # noqa: F401
+            import users.signals  # Если будут сигналы
         except ImportError:
             pass

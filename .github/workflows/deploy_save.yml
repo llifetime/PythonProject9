@@ -1,0 +1,102 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master, HW36 ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries=5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
+        env:
+          DB_NAME: testdb
+          DB_USER: testuser
+          DB_PASSWORD: testpass
+          SECRET_KEY: django-insecure-test-key
+        run: |
+          python manage.py migrate
+          python manage.py test
+
+      - name: Deploy to Server (Full Redeploy)
+          env:
+            PROJECT_DIR: /home/deploy/webapps/myproject
+            TEMP_DIR: /home/deploy/webapps/myproject_tmp
+          run: |
+            # Добавляем ключ хоста более надежным способом
+            ssh-keyscan -H 158.160.236.174 >> ~/.ssh/known_hosts
+            
+            # Запускаем скрипт НА СЕРВЕРЕ, указывая рабочую директорию
+            ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no deploy@158.160.236.174 -t "bash -s" << 'SSH'
+              # --- НАЧАЛО СКРИПТА, КОТОРЫЙ ВЫПОЛНЯЕТСЯ НА СЕРВЕРЕ ---
+              set -e # Остановить скрипт при любой ошибке
+            
+              echo "🚀 Starting full deployment..."
+            
+              # Проверяем, существуют ли переменные
+              echo "Project dir is: $PROJECT_DIR"
+              echo "Temp dir is: $TEMP_DIR"
+            
+              # Создаем временную директорию для нового кода
+              mkdir -p "$TEMP_DIR"
+              cd "$TEMP_DIR" || exit
+            
+              echo "⬇️ Cloning the latest version from GitHub..."
+              # ЗАМЕНИТЕ ЭТУ СТРОКУ НА АДРЕС ВАШЕГО РЕПОЗИТОРИЯ
+              git clone git@github.com:your-username/your-repo.git .
+            
+              echo "📦 Installing dependencies..."
+              # Проверяем, существует ли виртуальное окружение
+              if [ -d "venv" ]; then
+                source venv/bin/activate
+              else
+                echo "Virtual environment 'venv' not found!"
+                exit 1
+              fi
+            
+              pip install --no-cache-dir -r requirements.txt --upgrade
+            
+              echo "🔄 Applying database migrations..."
+              python manage.py migrate --noinput
+            
+              echo "🗑️ Removing old project directory..."
+              rm -rf "$PROJECT_DIR"
+            
+              echo "📦 Moving new code into place..."
+              mv "$TEMP_DIR" "$PROJECT_DIR"
+            
+              echo "📷 Collecting static files..."
+              python manage.py collectstatic --noinput
+            
+              echo "🔥 Restarting services..."
+              sudo supervisorctl restart myproject || echo "Supervisor not found"
+              sudo systemctl reload nginx || echo "Nginx not found"
+  SSH # <-- КРАЙНЕ ВАЖНО: Здесь НЕТ отступа!

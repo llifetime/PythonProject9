@@ -1,25 +1,72 @@
 from rest_framework import serializers
-from .models import Course, Lesson
+from .models import Course, Lesson, Payment, UserCourseAccess
 
 
-class LessonSerializer(serializers.ModelSerializer):
-    """Сериализатор для урока"""
-
+class SimpleLessonSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lesson
-        fields = ['id', 'course', 'title', 'description', 'preview', 'video_url', 'created_at', 'updated_at']
+        fields = [
+            "id",
+            "title",
+            "description",
+            "content",
+            "video_url",
+            "order",
+            "course",
+            "owner",
+            "created_at",
+            "updated_at",
+        ]
 
 
-class CourseSerializer(serializers.ModelSerializer):
-    """Сериализатор для курса"""
-
-    lessons = LessonSerializer(many=True, read_only=True)
-    lessons_count = serializers.SerializerMethodField()
+class SimpleCourseSerializer(serializers.ModelSerializer):
+    lessons_count = serializers.IntegerField(source='lessons.count', read_only=True)
+    lessons = SimpleLessonSerializer(many=True, read_only=True)
+    is_subscribed = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
-        fields = ['id', 'title', 'preview', 'description', 'lessons', 'lessons_count', 'created_at', 'updated_at']
+        fields = '__all__'
 
-    def get_lessons_count(self, obj):
-        """Получение количества уроков в курсе"""
-        return obj.lessons.count()
+    def get_is_subscribed(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            from users.models import Subscription
+            return Subscription.objects.filter(
+                user=request.user,
+                course=obj
+            ).exists()
+        return False
+
+
+class CourseCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Course
+        fields = ['title', 'description', 'price']
+
+    def validate_title(self, value):
+        if len(value) < 3:
+            raise serializers.ValidationError("Название курса должно содержать минимум 3 символа")
+        return value
+
+
+class PaymentCreateSerializer(serializers.Serializer):
+    success_url = serializers.URLField()
+    cancel_url = serializers.URLField()
+
+
+class PaymentStatusSerializer(serializers.Serializer):
+    status = serializers.CharField()
+    course_id = serializers.IntegerField()
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
+    currency = serializers.CharField(required=False)
+    payment_id = serializers.IntegerField(required=False)
+    has_access = serializers.BooleanField(required=False)
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    course_title = serializers.CharField(source='course.title', read_only=True)
+
+    class Meta:
+        model = Payment
+        fields = ['id', 'course', 'course_title', 'amount', 'status', 'created_at']
