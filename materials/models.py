@@ -1,4 +1,6 @@
-﻿from django.db import models
+﻿import re
+from django.core.exceptions import ValidationError
+from django.db import models
 from django.conf import settings
 
 
@@ -51,6 +53,13 @@ class Course(models.Model):
         """
         return int(self.price * 100)
 
+def validate_youtube_url(value):
+    """Валидация YouTube URL"""
+    if not value:
+        return
+    youtube_regex = r'^(https?://)?(www\.)?(youtube\.com|youtu\.be)/watch\?v=[\w-]+'
+    if not re.match(youtube_regex, value):
+        raise ValidationError('Недопустимая ссылка YouTube. Используйте ссылки формата YouTube.')
 
 class Lesson(models.Model):
     title = models.CharField(max_length=255, verbose_name='Название урока')
@@ -74,6 +83,7 @@ class Lesson(models.Model):
         max_length=500,
         blank=True,
         null=True,
+        validators=[validate_youtube_url],
         verbose_name='Ссылка на видео'
     )
     order = models.PositiveIntegerField(default=0, verbose_name='Порядок')

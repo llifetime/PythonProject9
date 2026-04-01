@@ -1,48 +1,49 @@
-﻿from rest_framework import viewsets, permissions, status
-from rest_framework.response import Response
-from django.conf import settings
-from django.utils import timezone
-import logging
-from .models import Course, Lesson
-from django.contrib.auth import get_user_model
-from .paginators import CoursePaginator, LessonPaginator
-from .serializers import (
+﻿from rest_framework import permissions, viewsets
+from rest_framework.permissions import BasePermission
+
+from materials.models import Lesson, Course
+from materials.paginators import CoursePaginator, LessonPaginator
+from materials.serializers import (
     SimpleLessonSerializer,
     SimpleCourseSerializer,
     CourseCreateSerializer
 )
 
-logger = logging.getLogger(__name__)
-User = get_user_model()
+
+class IsNotModerator(BasePermission):
+    def has_permission(self, request, view):
+        # Неавторизованные пользователи не могут создавать
+        if not request.user.is_authenticated:
+            return False
+        return not request.user.groups.filter(name='Модераторы').exists()
 
 
-# Простые permissions (оставляем как есть)
-class IsOwnerOrModerator(permissions.BasePermission):
+class IsOwnerOrModerator(BasePermission):
+    """Разрешение для владельца объекта или модератора"""
+
     def has_object_permission(self, request, view, obj):
         if not request.user.is_authenticated:
             return False
 
+        # Модераторы могут редактировать
         if request.user.groups.filter(name='Модераторы').exists():
             return request.method in permissions.SAFE_METHODS or request.method in ['PUT', 'PATCH']
 
+        # Владелец может редактировать
         if hasattr(obj, 'owner'):
             return obj.owner == request.user
 
         return False
 
 
-class IsNotModerator(permissions.BasePermission):
-    def has_permission(self, request, view):
-        if not request.user.is_authenticated:
-            return False
-        return not request.user.groups.filter(name='Модераторы').exists()
+class IsOwnerOnly(BasePermission):
+    """Разрешение только для владельца объекта"""
 
-
-class IsOwnerOnly(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         if not request.user.is_authenticated:
             return False
 
+        # Модераторы не могут удалять
         if request.user.groups.filter(name='Модераторы').exists():
             return False
 
@@ -53,9 +54,6 @@ class IsOwnerOnly(permissions.BasePermission):
 
 
 class CourseViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint для работы с курсами.
-    """
     queryset = Course.objects.all()
     serializer_class = SimpleCourseSerializer
     pagination_class = CoursePaginator
@@ -66,67 +64,44 @@ class CourseViewSet(viewsets.ModelViewSet):
         return SimpleCourseSerializer
 
     def get_permissions(self):
-        if self.action == 'create':
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]
+        elif self.action == 'create':
             return [permissions.IsAuthenticated(), IsNotModerator()]
         elif self.action in ['update', 'partial_update']:
             return [permissions.IsAuthenticated(), IsOwnerOrModerator()]
         elif self.action == 'destroy':
             return [permissions.IsAuthenticated(), IsOwnerOnly()]
-        elif self.action in ['retrieve', 'list']:
-            return [permissions.IsAuthenticated()]
         return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
+        # Для неаутентифицированных пользователей возвращаем все курсы (только для чтения)
         if not self.request.user.is_authenticated:
-            return Course.objects.none()
+            return Course.objects.all()  # ← вернуть все для чтения
 
         if self.request.user.groups.filter(name='Модераторы').exists():
             return Course.objects.all()
 
         return Course.objects.filter(owner=self.request.user)
 
-    def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
-
-    def perform_update(self, serializer):
-        # Автоматически обновляем поле updated_at
-        serializer.save(updated_at=timezone.now())
-
 
 class LessonViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint для работы с уроками.
-    """
     queryset = Lesson.objects.all()
     serializer_class = SimpleLessonSerializer
     pagination_class = LessonPaginator
 
     def get_permissions(self):
-        if self.action == 'create':
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]
+        elif self.action == 'create':
             return [permissions.IsAuthenticated(), IsNotModerator()]
         elif self.action in ['update', 'partial_update']:
             return [permissions.IsAuthenticated(), IsOwnerOrModerator()]
         elif self.action == 'destroy':
             return [permissions.IsAuthenticated(), IsOwnerOnly()]
-        elif self.action in ['retrieve', 'list']:
-            return [permissions.IsAuthenticated()]
         return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
-        if not self.request.user.is_authenticated:
-            return Lesson.objects.none()
-
-        if self.request.user.groups.filter(name='Модераторы').exists():
-            return Lesson.objects.all()
-
-        return Lesson.objects.filter(owner=self.request.user)
-
-    def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
-
-    def perform_update(self, serializer):
-        # Обновляем урок и его курс
-        lesson = serializer.save(updated_at=timezone.now())
-        # Обновляем время курса
-        if lesson.course:
-            lesson.course.save()  # автоматически обновит updated_at
+        # Для всех запросов возвращаем все уроки
+        # Права проверяются в permissions
+        return Lesson.objects.all()

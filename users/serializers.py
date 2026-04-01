@@ -7,20 +7,19 @@ User = get_user_model()
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    """Сериализатор для регистрации"""
     password = serializers.CharField(write_only=True)
-    
+
     class Meta:
         model = User
-        fields = ['email', 'password', 'first_name', 'last_name', 'username']
-    
+        fields = ['email', 'username', 'password', 'first_name', 'last_name']
+
     def create(self, validated_data):
         user = User.objects.create_user(
             email=validated_data['email'],
+            username=validated_data['username'],
             password=validated_data['password'],
             first_name=validated_data.get('first_name', ''),
-            last_name=validated_data.get('last_name', ''),
-            username=validated_data.get('username', validated_data['email'])
+            last_name=validated_data.get('last_name', '')
         )
         return user
 
@@ -64,9 +63,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'email', 'first_name', 'last_name', 'city', 
                   'payment_history', 'subscriptions']
-    
+
     def get_payment_history(self, obj):
-        payments = obj.payments.all()[:10]
+        payments = obj.materials_payments.all()[:10]  # ← используем правильный related_name
         return PaymentSerializer(payments, many=True).data
     
     def get_subscriptions(self, obj):

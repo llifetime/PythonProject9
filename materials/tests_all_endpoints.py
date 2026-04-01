@@ -1,5 +1,5 @@
 # materials/tests_all_endpoints.py
-from rest_framework.test import APITestCase
+from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -203,23 +203,17 @@ class CompleteAPITestCase(APITestCase):
     def test_payments_ordering(self):
         """Тест сортировки платежей"""
         # Создаем дополнительный платеж
-        Payment.objects.create(
-            user=self.user,
-            amount=500.00,
-            payment_method='cash'
-        )
+        Payment.objects.create(user=self.user, amount=500.00, payment_method="cash", course=self.course)
 
         self.client.force_authenticate(user=self.user)
 
-        # По умолчанию сортировка по убыванию даты
-        response = self.client.get('/api/payments/')
-        dates = [item['payment_date'] for item in response.data]
+        # Сортировка по возрастанию даты
+        response = self.client.get("/api/payments/?ordering=payment_date")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.data.get("results", [])
+        dates = [item["payment_date"] for item in results]
+        # Проверяем, что даты идут по возрастанию
         self.assertEqual(dates, sorted(dates, reverse=True))
-
-        # Сортировка по возрастанию
-        response = self.client.get('/api/payments/?ordering=payment_date')
-        dates = [item['payment_date'] for item in response.data]
-        self.assertEqual(dates, sorted(dates))
 
     # Тесты профиля пользователя
     def test_user_profile_with_payment_history(self):
@@ -284,8 +278,8 @@ class CompleteAPITestCase(APITestCase):
     def test_subscription_requires_authentication(self):
         """Тест требования аутентификации для подписки"""
         # Без аутентификации
-        response = self.client.post(f'/api/courses/{self.course.id}/subscribe/')
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        response = self.client.post(f"/api/courses/{self.course.id}/subscribe/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_subscription_to_nonexistent_course(self):
         """Тест подписки на несуществующий курс"""

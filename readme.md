@@ -20,3 +20,29 @@
 - Админ: admin@example.com / admin123
 - Модератор: moderator@example.com / moderator123
 - Студент: student@example.com / student123
+
+
+# Проект PythonProject9
+
+## Настройка сервера
+- Сервер: Ubuntu 22.04 LTS
+- Python 3.11
+- PostgreSQL
+- Nginx
+- Gunicorn + Supervisor
+
+## CI/CD
+При push в ветки main/master:
+1. Запускаются тесты
+2. При успехе - деплой на сервер 158.160.236.174
+
+## Переменные окружения
+Скопируйте `.env.example` в `.env` и заполните значения.
+
+## Локальный запуск
+```bash
+python -m venv venv
+source venv/bin/activate  # или venv\Scripts\activate на Windows
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver
