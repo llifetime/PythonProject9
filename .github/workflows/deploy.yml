@@ -62,25 +62,24 @@ jobs:
   deploy:
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-    
+    if: success()  # ← деплоить, если тесты прошли
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Setup SSH
       run: |
         mkdir -p ~/.ssh/
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
         chmod 600 ~/.ssh/deploy_key
         ssh-keyscan -H 158.160.236.174 >> ~/.ssh/known_hosts
-    
+
     - name: Deploy to server
       run: |
         ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy@158.160.236.174 << 'EOF'
           cd /home/deploy/webapps/myproject
           git pull origin ${{ github.ref_name }}
           
-          # Создаем виртуальное окружение, если его нет
           if [ ! -d "venv" ]; then
             python3 -m venv venv
           fi
